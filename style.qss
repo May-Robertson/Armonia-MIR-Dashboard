@@ -1,5 +1,3 @@
-/* ===== DASHBOARD STYLES ===== */
-
 /* Main layout */
 QMainWindow {
     background-color: #121212;
@@ -274,7 +272,7 @@ QLabel {
 }
 
 
-/* Add this to your style.qss for better disabled button styling */
+/* Disabled Button Styling */
 QPushButton:disabled {
     background-color: #535353;
     color: #808080;
