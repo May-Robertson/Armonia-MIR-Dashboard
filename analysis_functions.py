@@ -11,32 +11,31 @@ from thefuzz import fuzz
 import matplotlib.pyplot as plt
 import pandas as pd
 import pyloudnorm as pyln
+from lyricsgenius import Genius
 
 from dotenv import load_dotenv
 load_dotenv()
-#--------------------------------SEARCH FUNCTION--------------------------------
 
+# search deezer
 def deezer_search(artist_name, track_name, similarity_threshold=65):
-
-    # Broad search - just use track name to get more results
     search_track_name = urllib.parse.quote(track_name.replace(" ", "+"))
 
     search_url = f"https://api.deezer.com/search/track/?q={search_track_name}"
-    # https://api.deezer.com/search/track?q="good luck babe"
     try:
         track_search = urllib.request.urlopen(search_url).read().decode('utf-8')
         data = json.loads(track_search)
         matches = []
 
+        # fuzzy search to account for mistakes or mispelling
         for track_data in data["data"]:
             current_artist = track_data["artist"]["name"]
             current_track = track_data["title"]
             
-            # Calculate multiple similarity scores
+            # calculate multiple similarity scores
             artist_similarity = fuzz.token_sort_ratio(artist_name.lower(), current_artist.lower())
             track_similarity = fuzz.token_sort_ratio(track_name.lower(), current_track.lower())
             
-            # Use the higher score between partial and token ratios
+            # use the higher score between partial and token ratios
             artist_partial = fuzz.partial_ratio(artist_name.lower(), current_artist.lower())
             track_partial = fuzz.partial_ratio(track_name.lower(), current_track.lower())
             
@@ -46,19 +45,19 @@ def deezer_search(artist_name, track_name, similarity_threshold=65):
             total_score = (artist_score + track_score) / 2
             
             if total_score >= similarity_threshold:
-                # Get the track ID
+                # get track id
                 track_id = track_data["id"]
                 
-                # Make a second API call to get full track details
+                # make second API call to get full track details
                 try:
                     track_details_url = f"https://api.deezer.com/track/{track_id}"
                     track_details_response = urllib.request.urlopen(track_details_url).read()
                     track_details = json.loads(track_details_response)
                     
-                    # Get release date from track details or album
+                    # get release date from track details or album
                     release_date = track_details.get("release_date", "")
                     
-                    # If no release date at track level, check album
+                    # if no release date at track level, check album
                     if not release_date and "album" in track_details:
                         release_date = track_details["album"].get("release_date", "")
                         
@@ -80,7 +79,7 @@ def deezer_search(artist_name, track_name, similarity_threshold=65):
                     "album_id": track_data["album"]["id"]
                 })
     
-        # Sort by total score
+        # sort matches by total score
         matches.sort(key=lambda x: x["total_score"], reverse=True)
         return matches
         
@@ -88,16 +87,10 @@ def deezer_search(artist_name, track_name, similarity_threshold=65):
         print(f"Error searching Deezer: {e}")
         return []
 
-# deezer_search(artist_name, track_name)
-# deezer_search("A Tribe Called Quest", "Electric Relaxation")
 
-
+# get track info from prev deezer search
 def analyze_selected_track(output):
-    # print("\nPlease enter number from 0-"+str(len(output)-1)+" to select a track for analysis!\n")
     print("output",output)
-    # selection = int(input())
-    # print("Performing Analysis On --> ",output[int(selection)])
-    # print("ID = ",output[selection]['id'])
     track_id = str(output['id'])
 
     print("ACCESSING DEEZER API")
@@ -112,22 +105,15 @@ def analyze_selected_track(output):
     album_title = data["album"]["title"]
     release_date = data["release_date"]
 
-    # with open('x_file.pkl', 'wb') as outf:
-    #     pickle.dump([track_url, track_id, preview_url, track_name, artist_name,album_title, release_date], outf)
-
     print("\nTRACK INFO:")
     print("Track:",track_name,"\nArtist:",artist_name,"\nAlbum Title:", album_title,"\nRelease Date:",release_date)
 
 
 
-    '''GET PREVIEW URL'''
-
-
+    '''GET PREVIEW FILE URL'''
     urllib.request.urlretrieve(preview_url, "audio_files/"+track_name+".mp3")
-
-
-
     print("subprocess.call")
+
     # convert mp3 to wav file
     subprocess.call(['ffmpeg','-y', '-i', 'audio_files/'+track_name+'.mp3',
                     'audio_files/'+track_name+'.wav'])
@@ -135,9 +121,6 @@ def analyze_selected_track(output):
     
 
     # import required modules
-
-
-
     # wav conversion code
     from os import path
     from pydub import AudioSegment
@@ -159,8 +142,8 @@ def analyze_selected_track(output):
     return track_name
 
 
-
-
+# jackmcarthur @ github
+# https://github.com/jackmcarthur/musical-key-finder/blob/master/keyfinder.py
 # class that uses the librosa library to analyze the key that an mp3 is in
 # arguments:
 #     waveform: an mp3 file loaded by librosa, ideally separated out from any percussive sources
@@ -255,11 +238,8 @@ class Tonal_Fragment(object):
         plt.tight_layout()
         plt.show()
 
-
-# https://github.com/jackmcarthur/musical-key-finder/tree/master
+# get key and tempo
 def librosa_analysis(track_name):
-    #--------------------------------LIBROSA ANALYSIS--------------------------------
-
     # input_file = sys.argv[1]
     IPython.display.Audio('audio_files/'+track_name+".wav")
 
@@ -293,13 +273,14 @@ def get_loudness(track_name):
     return round(loudness, 2),round(loudness_normalized, 2)
 
 # based on Igor Vatolkin and Anil Nagathil paper
-def get_valence(track_name):
+# Evaluation of Audio Feature Groups for the Prediction of Arousal and Valence in Music
 
+def get_valence(track_name):
     # load track
     y, sr = librosa.load('audio_files/'+track_name+".wav", sr=None)
     y_harmonic, y_percussive = librosa.effects.hpss(y)
 
-    # RHYTHM COMPONENTS
+    # RHYTHMIC COMPONENTS
     # --- TEMPO ---
     tempo, _ = librosa.beat.beat_track(y=y_percussive, sr=sr)
     tempo_norm = min(1.0, max(0.0, (float(tempo) - 40) / 160.0))
@@ -347,7 +328,7 @@ def get_valence(track_name):
     
     return round(final_valence, 2)
 
-
+# based on spotify API's definition of energy
 def get_energy(track_name):
     y, sr = librosa.load('audio_files/'+track_name+".wav", sr=None)
 
@@ -409,13 +390,6 @@ def get_danceability(track_name, spotify_val=None):
 
 
 def export_saved_analyses_to_csv(saved_analyses_data, filename="saved_analyses.csv"):
-    """
-    Export saved analyses to a CSV file
-    
-    Args:
-        saved_analyses_data: List of dictionaries containing analysis data
-        filename: Output CSV filename
-    """
     export_data = []
     
     for item in saved_analyses_data:
@@ -436,47 +410,31 @@ def export_saved_analyses_to_csv(saved_analyses_data, filename="saved_analyses.c
             'Loudness Normalized (LUFS)': analysis_data.get('loudness_norm', 'Unknown')
         }
         export_data.append(row)
-    
-    # Create DataFrame and save to CSV
     df = pd.DataFrame(export_data)
     df.to_csv(filename, index=False)
     print(f"Exported {len(export_data)} tracks to {filename}")
     return filename
 
 
-
+# get spectrogram, chromagram, amp graph
 def librosa_graphs(track_name):
-    #--------------------------------LIBROSA ANALYSIS--------------------------------
     print('audio_files/'+track_name+".wav")
-    # input_file = sys.argv[1]
     IPython.display.Audio('audio_files/'+track_name+".wav")
 
     y, sr = librosa.load('audio_files/'+track_name+".wav", sr=None)
     onset_env = librosa.onset.onset_strength(y=y, sr=sr, aggregate=np.median)
     tempo, beats = librosa.beat.beat_track(onset_envelope=onset_env, sr=sr)
     chroma = librosa.feature.chroma_cens(y=y, sr=sr)
-
-    # Compute the Chroma Short-Time Fourier Transform (chroma_stft)
     chromagram = librosa.feature.chroma_stft(y=y, sr=sr)
-    # Calculate the mean chroma feature across time
     mean_chroma = np.mean(chromagram, axis=1)
-    # Define the mapping of chroma features to keys
     chroma_to_key = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
-    # Find the key by selecting the maximum chroma feature
     estimated_key_index = np.argmax(mean_chroma)
     estimated_key = chroma_to_key[estimated_key_index]
-
-
     fig, ax = plt.subplots()
     librosa.display.waveshow(y, sr=sr, ax=ax)
     ax.set(title='Amplitude over time')
     plt.xlabel('Time(Seconds)')
     plt.ylabel('Amplitude')
-
-    # plt.show();
-
-
-
     D = librosa.stft(y)
     S_db = librosa.amplitude_to_db(np.abs(D), ref=np.max)
 
@@ -502,39 +460,19 @@ def librosa_graphs(track_name):
     ax[1].label_outer()
     fig.colorbar(img, ax=ax, format="%+2.f dB")
     plt.xlim(0, 30)
-
-    print("SAVING 1st FILE")
     plt.savefig('figs/spectrograms.png')
-    print("SAVED")
-    # plt.show();
+
+
 
 
     chroma = librosa.feature.chroma_stft(y=y, sr=sr)
-
-# chromagram = librosa.feature.chroma_stft(y=y, sr=sr)
 
     fig, ax = plt.subplots()
     img = librosa.display.specshow(chroma, y_axis='chroma', x_axis='time', ax=ax)
     ax.set(title='Chromagram')
     fig.colorbar(img, ax=ax)
 
-    # plt.show()
-    
-
-    # ccov = np.cov(chroma)
-    # fig, ax = plt.subplots()
-    # img = librosa.display.specshow(ccov, y_axis='chroma', x_axis='chroma', ax=ax)
-    # ax.set(title='Chroma covariance')
-    # fig.colorbar(img, ax=ax)
     plt.savefig('figs/chromagram.png')
-
-    # plt.show();
-
-    # Print the detected key
-    print("---Track Information---")
-    # print(track_name)
-    print("Detected Key:", estimated_key)
-    print("Tempo: ", tempo)
 
     y_harmonic, y_percussive = librosa.effects.hpss(y)
 
@@ -551,130 +489,11 @@ def librosa_graphs(track_name):
     plt.ylabel('Amplitude')
 
     plt.savefig('figs/amp_over_time.png')
-    # plt.show();
     print("return plt")
     return plt
-    
 
 
-# librosa_graphs("Hold On")
-
-
-
-
-def musicbrainz_search(artist_name, track_name, album_title):
-    """Search MusicBrainz for track releases and return data sorted by release date"""
-    musicbrainzngs.set_useragent("ApplicationName", "0.1")
-    releases = []
-    
-    try:
-        result = musicbrainzngs.search_recordings(
-            artist=artist_name, 
-            recording=track_name, 
-            release=album_title, 
-            strict=True
-        )
-        
-        for recording in result['recording-list']:
-            # Check all releases for this recording
-            for release in recording.get('release-list', []):
-                if release['title'] == album_title:
-                    releases.append(release)
-        
-        # Sort releases by date (oldest first)
-        releases.sort(key=lambda x: parse_release_date(x.get('date', '0000')))
-        
-        return releases
-        
-    except Exception as e:
-        print(f"Error searching MusicBrainz: {e}")
-        return []
-    
-def parse_release_date(date_str):
-    """Parse release date string for sorting"""
-    if not date_str:
-        return '9999-12-31'  # Put undated releases at the end
-    
-    # Handle various date formats
-    parts = date_str.split('-')
-    
-    # Year only
-    if len(parts) == 1:
-        return f"{parts[0]}-12-31"  # End of year for sorting
-    
-    # Year-Month
-    elif len(parts) == 2:
-        # Get last day of month
-        year, month = parts
-        from datetime import datetime
-        try:
-            # Try to get last day of month
-            if month == '02':
-                last_day = '29' if int(year) % 4 == 0 else '28'
-            elif month in ['04', '06', '09', '11']:
-                last_day = '30'
-            else:
-                last_day = '31'
-            return f"{year}-{month}-{last_day}"
-        except:
-            return f"{year}-{month}-31"
-    
-    # Full date
-    else:
-        return date_str
-
-# def get_tags(artist_name, track_name, album_title):
-#     """Search MusicBrainz for track releases and extract genre tags"""
-#     musicbrainzngs.set_useragent("ApplicationName", "0.1")
-#     releases = []
-    
-#     try:
-#         result = musicbrainzngs.search_recordings(
-#             artist=artist_name, 
-#             recording=track_name, 
-#             release=album_title, 
-#             strict=True
-#         )
-        
-#         # Extract genre tags from the first release
-#         tags = []
-        
-#         for recording in result['recording-list']:
-#             # Check all releases for this recording
-#             for release in recording.get('release-list', []):
-#                 if release['title'] == album_title:
-#                     releases.append(release)
-                    
-#                     # Get detailed release information with tags
-#                     try:
-#                         # Include tags in the request
-#                         release_details = musicbrainzngs.get_release_by_id(
-#                             release['id'],
-#                             includes=["tags"]  # Request tag information
-#                         )
-                        
-#                         # Extract tags from release details
-#                         if 'tag-list' in release_details['release']:
-#                             for tag in release_details['release']['tag-list']:
-#                                 tags.append({
-#                                     'name': tag.get('name', ''),
-#                                     'count': tag.get('count', 0)
-#                                 })
-                        
-#                     except Exception as e:
-#                         print(f"Error fetching tags for release {release['id']}: {e}")
-        
-#         # Sort releases by date (oldest first)
-#         releases.sort(key=lambda x: parse_release_date(x.get('date', '0000')))
-        
-#         # Return both releases and tags
-#         return releases, tags[:10]  # Return top 10 tags
-        
-#     except Exception as e:
-#         print(f"Error searching MusicBrainz: {e}")
-#         return [], []
-
-
+# get genre from deezer API
 def get_genre(album_name, artist_name=None, track_name=None):
     """Get genre information from Deezer using album name"""
     
@@ -741,28 +560,12 @@ def get_genre(album_name, artist_name=None, track_name=None):
         print(f"Error fetching genre from Deezer: {e}")
         return {"genres": [], "album": album_name, "artist": artist_name or "", "track": track_name or ""}
     
-# genre_info = get_genre("Midnight Marauders")
-# print(f"Genres for 'Midnight Marauders': {genre_info['genres']}")
 
-# output = musicbrainz_search("A Tribe Called Quest", "Electric Relaxation", "Midnight Marauders")
-# print(output)
-
-# tags = get_tags("A Tribe Called Quest", "Electric Relaxation", "Midnight Marauders")
-# print(tags)
+# get lyrics from genius API
 def lyrics_genius(artist_name, track_name):
-    #--------------------------------MUSICBRAINZ INFO--------------------------------
-
-    from lyricsgenius import Genius
-
-    # artist_name = "Chappell Roan"
-    # track_name = "Pink Pony Club"
-    # album_title = "The Rise and Fall of a Midwest Princess"
-
-
 
     access_token = os.environ.get("GENIUS_API_KEY")
-    print("GENIUS ACCESS",access_token)
-    # genius = Genius(os.environ.get("GENIUS_API_KEY"))
+
     genius = Genius(access_token)
     song = genius.search_song(track_name, artist_name)
     if song is None:
@@ -773,38 +576,16 @@ def lyrics_genius(artist_name, track_name):
 
 
 def read_csv(filepath):
-    
-    # print("FILEPATH",filepath)
-    # print("0",filepath[0])
-    # print(type(filepath))
+
     df = pd.read_csv(filepath[0], skipinitialspace=True, usecols=['Track Name', 'Artist Name(s)'])
     export = []
-    # limit = 0
     for i, j in zip(df['Track Name'], df['Artist Name(s)']):
-        # for j in df['Artist Name(s)']:
-        # if limit >= 5:
-            # break
-        # print(j)
-        # print(i)
         matches = deezer_search(j, i)
-        # print(matches)
-        # print("MATCHES 0",matches[0])
         try:
             out = analyze_selected_track(matches[0])
         except:
             print("song not found on deezer")
         else:
-            # print("OUT", out)
             estimated_key, tempo = librosa_analysis(out)
-            # print(out, "-", estimated_key," and " ,tempo)
-            # print(matches[0])
             export.append({"track": i, "artist": j, "key": estimated_key, "tempo": tempo})
-            # limit += 1
     return export
-
-# data = read_csv('data.csv')
-
-# df = pd.DataFrame(data)
-# df = pd.DataFrame.from_dict(data)
-# df = pd.DataFrame.from_records(data)
-# df.to_csv("Filename.csv")
