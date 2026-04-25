@@ -1,0 +1,281 @@
+/* ===== DASHBOARD STYLES ===== */
+
+/* Main layout */
+QMainWindow {
+    background-color: #121212;
+}
+
+QWidget {
+    background-color: transparent;
+    color: #FFFFFF;
+}
+
+/* Left Panel */
+#leftPanel {
+    background-color: #181818;
+    border-radius: 15px;
+    padding: 15px;
+}
+
+/* Right Panel */
+#rightPanel {
+    background-color: #181818;
+    border-radius: 15px;
+    padding: 15px;
+}
+
+/* Stat Cards */
+#statCard {
+    background-color: #242424;
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid #2A2A2A;
+}
+
+#statCard:hover {
+    background-color: #2A2A2A;
+    border-color: #967bb6;
+}
+
+#statTitle {
+    color: #B3B3B3;
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 5px;
+}
+
+#statValue {
+    color: #FFFFFF;
+    font-size: 32px;
+    font-weight: 700;
+}
+
+#statSubtitle {
+    color: #808080;
+    font-size: 12px;
+    margin-top: 5px;
+}
+
+/* Group Box Styling */
+QGroupBox {
+    color: #FFFFFF;
+    font-weight: 700;
+    font-size: 16px;
+    border: 2px solid #2A2A2A;
+    border-radius: 12px;
+    margin-top: 5px;
+    padding-top: 8px;
+    background-color: #242424;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    padding: 0 10px 5px 10px;
+    color: #FFFFFF;
+}
+
+/* Search Results List */
+QListWidget {
+    background-color: #2A2A2A;
+    border: 1px solid #3A3A3A;
+    border-radius: 8px;
+    padding: 5px;
+    color: #B3B3B3;
+    font-size: 14px;
+    outline: none;
+}
+
+QListWidget::item {
+    padding: 12px;
+    border-radius: 6px;
+    margin: 2px;
+}
+
+QListWidget::item:hover {
+    background-color: #DABFFF;
+    color: #000000;
+}
+
+QListWidget::item:selected {
+    background-color: #967bb6;
+    color: #000000;
+}
+
+/* MusicBrainz List */
+#musicbrainzList {
+    background-color: #1E1E1E;
+    border: 1px solid #3A3A3A;
+}
+
+#musicbrainzList::item {
+    padding: 10px;
+    border-bottom: 1px solid #2A2A2A;
+}
+
+#musicbrainzList::item:last {
+    border-bottom: none;
+}
+
+/* Input Fields */
+QLineEdit {
+    background-color: #2A2A2A;
+    border: 2px solid #3A3A3A;
+    border-radius: 8px;
+    padding: 12px 10px;
+    color: #FFFFFF;
+    font-size: 14px;
+    selection-background-color: #967bb6;
+    min-height: 16px;
+}
+
+QLineEdit:focus {
+    border: 2px solid #967bb6;
+    background-color: #2A2A2A;
+}
+
+/* Checkbox */
+QCheckBox {
+    color: #B3B3B3;
+    font-size: 14px;
+    spacing: 10px;
+}
+
+QCheckBox::indicator {
+    width: 18px;
+    height: 18px;
+    border: 2px solid #535353;
+    border-radius: 4px;
+    background-color: #2A2A2A;
+}
+
+QCheckBox::indicator:checked {
+    background-color: #967bb6;
+    border-color: #967bb6;
+    image: url(checkmark.png);
+}
+
+/* Status Label */
+#statusLabel {
+    color: #B3B3B3;
+    font-size: 13px;
+    font-style: italic;
+    padding: 10px;
+    background-color: #242424;
+    border-radius: 8px;
+    border: 1px solid #2A2A2A;
+}
+
+/* Track Info */
+#trackInfo {
+    color: #FFFFFF;
+    font-size: 18px;
+    font-weight: 600;
+    padding: 15px;
+    background-color: #2A2A2A;
+    border-radius: 10px;
+    margin-bottom: 10px;
+}
+
+/* Buttons */
+QPushButton {
+    background-color: #967bb6;
+    color: #121212;
+    border: none;
+    border-radius: 10px;
+    padding: 12px 24px;
+    /* font-weight: 700; */
+    font-size: 14px;
+    min-height: 20px;
+}
+
+/* Play Button (override) */
+QPushButton#play_button {
+    padding: 0px !important;
+    min-height: auto !important;
+    
+    background-color: #967bb6;
+    border: 2px solid #DABFFF;
+    border-radius: 20px;
+    padding: 0px;
+    margin: 0px;
+    font-size: 16px;
+    font-weight: bold;
+    color: #121212;
+    
+}
+
+
+
+
+
+/* Slider */
+QSlider::groove:horizontal {
+    height: 6px;
+    background: #535353;
+    border-radius: 3px;
+}
+
+QSlider::sub-page:horizontal {
+    background: #967bb6;
+    border-radius: 3px;
+}
+
+QSlider::handle:horizontal {
+    background: #FFFFFF;
+    border: 2px solid #967bb6;
+    width: 16px;
+    height: 16px;
+    margin: -5px 0;
+    border-radius: 8px;
+}
+
+/* Text Edit for updates */
+QTextEdit {
+    background-color: #2A2A2A;
+    border: 1px solid #3A3A3A;
+    border-radius: 8px;
+    padding: 10px;
+    color: #B3B3B3;
+    font-size: 13px;
+    selection-background-color: #967bb6;
+}
+
+/* Scrollbars */
+QScrollBar:vertical {
+    border: none;
+    background: #2A2A2A;
+    width: 10px;
+    border-radius: 5px;
+}
+
+QScrollBar::handle:vertical {
+    background: #535353;
+    border-radius: 5px;
+    min-height: 30px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background: #646464;
+}
+
+/* Labels in detail panel */
+QLabel {
+    color: #B3B3B3;
+    font-size: 14px;
+    padding: 5px;
+}
+
+/* Visualization area placeholder */
+QLabel {
+    color: #B3B3B3;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+
+/* Add this to your style.qss for better disabled button styling */
+QPushButton:disabled {
+    background-color: #535353;
+    color: #808080;
+}
