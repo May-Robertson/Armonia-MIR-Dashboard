@@ -3,7 +3,7 @@ import analysis_functions as af
 import datetime
 import os
 
-from PySide6.QtCore import Qt, QUrl, QTimer
+from PySide6.QtCore import Qt, QUrl
 from PySide6.QtGui import QPixmap
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 
@@ -136,7 +136,7 @@ class AnalysisProgressDialog(QDialog):
         
         current_layout.addWidget(self.track_progress_bar)
         
-        # Status label
+        # Analysis status label
         self.status_label = QLabel("Preparing analysis...")
         self.status_label.setAlignment(Qt.AlignCenter)
         self.status_label.setStyleSheet("""
@@ -147,7 +147,7 @@ class AnalysisProgressDialog(QDialog):
             }
         """)
         
-        # Completed tracks list
+        # Completed tracks
         completed_group = QGroupBox("Completed Tracks")
         completed_layout = QVBoxLayout(completed_group)
         
@@ -177,43 +177,44 @@ class AnalysisProgressDialog(QDialog):
     def update_progress(self, current_track_info, track_progress, status=""):
         
         self.current_track_label.setText(
-            f"Current: {current_track_info.get('track', 'Unknown')} - {current_track_info.get('artist', 'Unknown')}"
-            # "Current: "+current_track_info.get('track', 'Unknown') - current_track_info.get('artist', 'Unknown')
+            "Current: "+current_track_info.get('track', 'Unknown') +" - "+ current_track_info.get('artist', 'Unknown')
+           
+
         )
         self.track_progress_bar.setValue(track_progress)
         
         if status:
             self.status_label.setText(status)
             
+    # call when a track's analysis is done
     def track_completed(self, track_info, success=True):
-        """Mark a track as completed"""
         self.completed_tracks += 1
         self.overall_progress_bar.setValue(self.completed_tracks)
         
-        # Add to completed list
-        status_symbol = "✓" if success else "✗"
+        # add to completed list
+        status_symbol = "" if success else "ANALYSIS FAILED: "
         
-        track_text = f"{status_symbol} {track_info.get('track', 'Unknown')} - {track_info.get('artist', 'Unknown')}"
+        track_text = status_symbol + track_info.get('track', 'Unknown') +" - "+ track_info.get('artist', 'Unknown')
         
-        # Append to completed list
+        # append to completed list
         current_text = self.completed_list.toPlainText()
         if current_text:
             self.completed_list.setPlainText(current_text + "\n" + track_text)
         else:
             self.completed_list.setPlainText(track_text)
             
-        # Scroll to bottom
+        # scroll to bottom
         self.completed_list.verticalScrollBar().setValue(
             self.completed_list.verticalScrollBar().maximum()
         )
         
-        # Check if all tracks are completed
+        # check if all tracks are completed
         if self.completed_tracks >= self.total_tracks:
             self.analysis_complete()
-            
+
+    # called when all tracks are done being analyzed          
     def analysis_complete(self):
-        """Called when all tracks have been analyzed"""
-        self.status_label.setText("✓ Analysis complete! ✓")
+        self.status_label.setText("Analysis complete!")
         self.status_label.setStyleSheet("""
             QLabel {
                 font-size: 14px;
@@ -223,59 +224,16 @@ class AnalysisProgressDialog(QDialog):
             }
         """)
         self.current_track_label.setText("All tracks analyzed successfully!")
-        
 
 
-
-# popup window confirming if the user would like to analyze/download the selected track
-class ConfirmationDialog(QDialog):
-    def __init__(self, track_info, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Confirm Download")
-        self.setModal(True)
-
-        print(track_info)
-        
-        layout = QVBoxLayout()
-        
-        self.label = QLabel("Would you like to analyze:\n")
-        self.label_artist = QLabel("Artist: "+track_info['artist'])
-        self.label_track = QLabel("Track: "+track_info['track'])
-        self.label_album = QLabel("Album: "+track_info['album'])
-        self.label_notice = QLabel("Please be aware that a 30 second preview of the song will be downloaded in wav format. This is necessary to perform acoustic analysis")
-
-        self.label_notice.setStyleSheet("font-size: 10px")
-        
-        self.label.setWordWrap(True)
-        layout.addWidget(self.label)
-        layout.addWidget(self.label_track)
-        layout.addWidget(self.label_artist)
-        layout.addWidget(self.label_album)
-        
-        # yes/no buttons
-        button_box = QDialogButtonBox(
-            QDialogButtonBox.Yes | QDialogButtonBox.No
-        )
-        button_box.accepted.connect(self.accept)
-        button_box.rejected.connect(self.reject)
-        layout.addWidget(button_box)
-
-        layout.addWidget(self.label_notice)
-        
-        self.setLayout(layout)
-        self.resize(400, 250)
-
-
+# display analysis for a single track
 class AnalysisView(QWidget):
-    """Widget to display analysis results for a single track"""
     def __init__(self, parent=None):
         super().__init__(parent)
         self.track_info = None
         self.track_name = None
         self.player = None
         self.audio = None
-        self.progress_timer = QTimer()
-        self.progress_timer.timeout.connect(self.update_progress)
         
         self.setup_ui()
         
@@ -289,7 +247,7 @@ class AnalysisView(QWidget):
         center_layout.setSpacing(10)
         center_layout.setContentsMargins(5, 5, 5, 5)
         
-        # Top row with tempo, key, genre
+        # Top row - tempo, key, genre
         stats_row = QHBoxLayout()
         stats_row.setSpacing(15)
 
@@ -329,39 +287,38 @@ class AnalysisView(QWidget):
         center_layout.addLayout(stats_row)
 
         # Visualization row
-        viz_row = QHBoxLayout()
-        viz_row.setSpacing(10)
+        vis_row = QHBoxLayout()
+        vis_row.setSpacing(10)
         
         # Analysis Visualization Area
-        librosa_viz_group = QGroupBox("Audio Analysis Visualizations")
-        librosa_group_layout = QVBoxLayout(librosa_viz_group)
+        librosa_vis_group = QGroupBox("Audio Analysis Visualizations")
+        librosa_group_layout = QVBoxLayout(librosa_vis_group)
         
-        self.librosa_viz_scroll = QScrollArea()
-        self.librosa_viz_scroll.setWidgetResizable(True)
-        self.librosa_viz_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        self.librosa_viz_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        self.librosa_viz_scroll.setMinimumHeight(300)
+        self.librosa_vis_scroll = QScrollArea()
+        self.librosa_vis_scroll.setWidgetResizable(True)
+        self.librosa_vis_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.librosa_vis_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.librosa_vis_scroll.setMinimumHeight(300)
 
-        viz_container = QWidget()
-        self.librosa_viz_layout = QVBoxLayout(viz_container)
-        self.librosa_viz_layout.setSpacing(10)
-        self.librosa_viz_layout.setContentsMargins(5, 5, 5, 5)
+        vis_container = QWidget()
+        self.librosa_vis_layout = QVBoxLayout(vis_container)
+        self.librosa_vis_layout.setSpacing(10)
+        self.librosa_vis_layout.setContentsMargins(5, 5, 5, 5)
 
-        self.librosa_viz_scroll.setWidget(viz_container)
-        librosa_group_layout.addWidget(self.librosa_viz_scroll)
-        viz_row.addWidget(librosa_viz_group, 3)
+        self.librosa_vis_scroll.setWidget(vis_container)
+        librosa_group_layout.addWidget(self.librosa_vis_scroll)
+        vis_row.addWidget(librosa_vis_group, 3)
 
         # Audio Features and Lyrics
         info_container = QWidget()
         info_container_layout = QVBoxLayout(info_container)
         info_container_layout.setSpacing(10)
         
-        # Audio Features Group - styled like "Currently Selected"
+        # Audio Features
         audio_features_group = QGroupBox("Audio Features")
         audio_features_layout = QVBoxLayout(audio_features_group)
         audio_features_layout.setSpacing(8)
         
-        # Create labels with proper styling
         self.energy_label = QLabel("Energy: --")
         self.energy_label.setObjectName("detailLabel")
         self.energy_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
@@ -377,7 +334,7 @@ class AnalysisView(QWidget):
         self.loudness_norm_label = QLabel("Loudness Normalized: --")
         self.loudness_norm_label.setObjectName("detailLabel")
         self.loudness_norm_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-        
+
         self.duration_label = QLabel("Duration: --")
         self.duration_label.setObjectName("detailLabel")
         self.duration_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
@@ -386,7 +343,6 @@ class AnalysisView(QWidget):
         self.danceability_label.setObjectName("detailLabel")
         self.danceability_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
     
-        # Add labels to layout
         audio_features_layout.addWidget(self.energy_label)
         audio_features_layout.addWidget(self.valence_label)
         audio_features_layout.addWidget(self.danceability_label)
@@ -395,7 +351,7 @@ class AnalysisView(QWidget):
         audio_features_layout.addWidget(self.duration_label)
         audio_features_layout.addStretch()
 
-        # Lyrics Group
+        # Lyrics
         lyrics_group = QGroupBox("Lyrics")
         lyrics_layout = QVBoxLayout(lyrics_group)
         
@@ -408,37 +364,38 @@ class AnalysisView(QWidget):
         
         info_container_layout.addWidget(audio_features_group)
         info_container_layout.addWidget(lyrics_group)
-        viz_row.addWidget(info_container, 2)
+        vis_row.addWidget(info_container, 2)
 
-        center_layout.addLayout(viz_row)
+        center_layout.addLayout(vis_row)
         center_layout.setStretch(0, 1)
         center_layout.setStretch(1, 4)
         
         main_layout.addWidget(center_panel)
 
+    # code to do with upating main window's information
+
+    # set current track
     def set_track(self, track_info, track_name):
-        """Set the track to display and update the analysis"""
         self.track_info = track_info
         self.track_name = track_name
         self.update_analysis_display()
 
     def update_analysis_display(self):
-        """Update all analysis displays with results"""
         if not self.track_info or not self.track_name:
             return
         
-        # LIBROSA analysis
+        # Librosa analysis
         key, tempo = af.librosa_analysis(self.track_name)
         af.librosa_graphs(self.track_name)
         tempo_value = round(tempo[0]) if tempo else 0
         
         self.tempo_value_label.setText(str(tempo_value) + " BPM")
-        self.key_value_label.setText(str(key) if key else "--")
+        self.key_value_label.setText(str(key))
         
-        # Clear existing visualizations
-        self.clear_main_viz_layout()
-        
-        # Create scroll area for graphs
+        # clear existing vis
+        self.clear_main_vis_layout()
+    
+        # create scroll area for graphs
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
         scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
@@ -451,7 +408,7 @@ class AnalysisView(QWidget):
         graphs_container_layout.setSpacing(15)
         graphs_container_layout.setContentsMargins(10, 10, 10, 10)
         
-        # Graph files to display
+        # get graph files
         graph_files = [
             ("figs/chromagram.png", "Chromagram"),
             ("figs/spectrograms.png", "Spectrogram"),
@@ -515,34 +472,33 @@ class AnalysisView(QWidget):
         
         graphs_container_layout.addStretch()
         scroll_area.setWidget(graphs_container)
-        self.librosa_viz_layout.addWidget(scroll_area)
+        self.librosa_vis_layout.addWidget(scroll_area)
         
-        # Get lyrics
+        # get lyrics from lyricsgenius api
         lyrics = af.lyrics_genius(self.track_info.get('artist', ''), self.track_info.get('track', ''))
         self.lyrics_text.setPlainText(lyrics)
         
-        # Get audio features
-        # Get audio features
+        # get audio features from librosa
         try:
             energy = af.get_energy(self.track_name)
             valence = af.get_valence(self.track_name)
             loudness, loudness_norm = af.get_loudness(self.track_name)
             danceability = af.get_danceability(self.track_name)
             
-            # Get duration from track_info
+            # get duration from track_info
             track_duration_seconds = int(self.track_info.get('duration', 0))
             track_duration = str(datetime.timedelta(seconds=track_duration_seconds))
 
-            # Update labels with formatted values
-            self.energy_label.setText(f"Energy: {energy}")
-            self.valence_label.setText(f"Valence: {valence}")
-            self.danceability_label.setText(f"Danceability: {danceability}")
-            self.loudness_label.setText(f"Loudness: {loudness:.1f} dB")
-            self.loudness_norm_label.setText(f"Loudness Normalized -14 dB LUFS: {loudness_norm:.1f} dB")
-            self.duration_label.setText(f"Duration: {track_duration}")
+            # update labels with formatted values
+            self.energy_label.setText("Energy: "+str(energy))
+            self.valence_label.setText("Valence: "+str(valence))
+            self.danceability_label.setText("Danceability: "+str(danceability))
+            self.loudness_label.setText("Loudness: "+str(loudness)+ "dB")
+            self.loudness_norm_label.setText("Loudness Normalized -14 dB LUFS: "+str(loudness_norm)+ "dB")
+            self.duration_label.setText("Duration: "+str(track_duration))
             
             
-            # Get genre
+            # get genre
             genre_data = af.get_genre(
                 album_name=self.track_info.get('album', ''),
                 artist_name=self.track_info.get('artist', ''),
@@ -557,7 +513,7 @@ class AnalysisView(QWidget):
                 self.genre_value_label.setText("No genres found")
                 
         except Exception as e:
-            print(f"Error fetching audio features: {e}")
+            print("Error fetching audio features: "+str(e))
             import traceback
             traceback.print_exc()
             self.energy_label.setText("Energy: Error")
@@ -567,12 +523,12 @@ class AnalysisView(QWidget):
             self.duration_label.setText("Duration: Error")
             self.danceability_label.setText("Danceability: Error")
         
-        # Setup media player
+        # setup media player for playing preview wav file
         self.setup_media_player()
 
-    def clear_main_viz_layout(self):
-        while self.librosa_viz_layout.count():
-            item = self.librosa_viz_layout.takeAt(0)
+    def clear_main_vis_layout(self):
+        while self.librosa_vis_layout.count():
+            item = self.librosa_vis_layout.takeAt(0)
             if item.widget():
                 widget = item.widget()
                 widget.setParent(None)
@@ -580,7 +536,7 @@ class AnalysisView(QWidget):
 
     # Media player methods
     def setup_media_player(self):
-        audio_url = f"audio_files/{self.track_name}.wav"
+        audio_url = "audio_files/"+self.track_name+".wav"
         
         if self.player:
             self.player.stop()
@@ -591,11 +547,6 @@ class AnalysisView(QWidget):
         self.audio = QAudioOutput()
         self.player.setAudioOutput(self.audio)
         
-        self.player.mediaStatusChanged.connect(self.on_media_status_changed)
-        self.player.durationChanged.connect(self.on_duration_changed)
-        self.player.positionChanged.connect(self.on_position_changed)
-        self.player.playbackStateChanged.connect(self.on_playback_state_changed)
-        
         self.player.setSource(QUrl.fromLocalFile(audio_url))
 
     def toggle_playback(self):
@@ -604,42 +555,15 @@ class AnalysisView(QWidget):
             
         if self.player.playbackState() == QMediaPlayer.PlayingState:
             self.player.pause()
-            self.progress_timer.stop()
         else:
             self.player.play()
-            self.progress_timer.start(100)
-
-    def seek_position(self, position):
-        if self.player and self.player.duration() > 0:
-            seek_pos = (position / 100) * self.player.duration()
-            self.player.setPosition(int(seek_pos))
-
-    def update_progress(self):
-        if self.player and self.player.duration() > 0:
-            position = self.player.position()
-            duration = self.player.duration()
-            if duration > 0:
-                progress = (position / duration) * 100
-
-    def on_duration_changed(self, duration):
-        pass
-
-    def on_position_changed(self, position):
-        pass
-
-    def on_playback_state_changed(self, state):
-        pass
-
-    def on_media_status_changed(self, status):
-        if status == QMediaPlayer.EndOfMedia:
-            self.progress_timer.stop()
 
     def get_analysis_data(self):
         """Return the analysis data for export"""
         if not self.track_info:
             return {}
         
-        # Extract values from labels, handling potential errors
+        # Extract values from labels
         try:
             key = self.key_value_label.text() if self.key_value_label.text() != "--" else "Unknown"
             tempo = self.tempo_value_label.text().replace(' BPM', '') if self.tempo_value_label.text() != "--" else "Unknown"
@@ -659,7 +583,7 @@ class AnalysisView(QWidget):
                 'loudness_norm': loudness_norm
             }
         except Exception as e:
-            print(f"Error getting analysis data: {e}")
+            print("Error getting analysis data: "+str(e))
             return {
                 'key': 'Error',
                 'tempo': 'Error',
@@ -671,8 +595,8 @@ class AnalysisView(QWidget):
             }
 
 
+# a track in the analysis queue
 class QueueTrackWidget(QWidget):
-    """Widget representing a track in the queue with a checkbox"""
     def __init__(self, track_info, parent=None):
         super().__init__(parent)
         self.track_info = track_info
@@ -687,7 +611,7 @@ class QueueTrackWidget(QWidget):
         self.checkbox = QCheckBox()
         self.checkbox.setChecked(True)
         
-        track_text = f"{self.track_info.get('track', 'Unknown')} - {self.track_info.get('artist', 'Unknown')}"
+        track_text = self.track_info.get('track', 'Unknown') +" - "+ self.track_info.get('artist', 'Unknown')
         self.label = QLabel(track_text)
         self.label.setWordWrap(True)
         self.label.setMinimumHeight(25)
@@ -717,15 +641,13 @@ class MainWindow(QMainWindow):
         self.audio = None
         self.analysis_queue = []
         self.queue_widgets = []
-        self.progress_dialog = None  # Keep reference to progress dialog
+        self.progress_dialog = None
         
-        # Cache for analysis views
-        self.analysis_views = {}  # key: track_name, value: AnalysisView
+        # saved analyses
+        # key: track_name, value: AnalysisView
+        self.analysis_views = {}  
         self.current_track_name = None
         self.saved_analyses_data = [] 
-        
-        # self.progress_timer = QTimer()
-        # self.progress_timer.timeout.connect(self.update_progress)
 
         # Central widget and main layout
         central_widget = QWidget()
@@ -789,7 +711,7 @@ class MainWindow(QMainWindow):
         queue_group = QGroupBox("Analysis Queue")
         queue_main_layout = QVBoxLayout(queue_group)
 
-        # Queue controls (Select All and Remove Selected buttons)
+        # Queue controls - select all and remove selected buttons
         queue_controls = QHBoxLayout()
         self.select_all_button = QPushButton("Select All")
         self.select_all_button.clicked.connect(self.toggle_select_all_queue)
@@ -799,7 +721,7 @@ class MainWindow(QMainWindow):
         queue_controls.addWidget(self.select_all_button)
         queue_controls.addWidget(self.remove_selected_button)
 
-        # Queue scroll area (contains the list of tracks)
+        # analysis queue scroll area
         self.queue_scroll = QScrollArea()
         self.queue_scroll.setWidgetResizable(True)
         self.queue_scroll.setMinimumHeight(150)
@@ -810,13 +732,11 @@ class MainWindow(QMainWindow):
         self.queue_layout = QVBoxLayout(self.queue_container)
         self.queue_layout.setSpacing(2)
         self.queue_layout.setContentsMargins(5, 5, 5, 5)
-        # Remove the stretch at the end
-        # self.queue_layout.addStretch()  # REMOVE THIS LINE
 
         self.queue_scroll.setWidget(self.queue_container)
 
-        # Analyze Selected button (now outside the scroll area)
-        self.analyze_selected_button = QPushButton("Analyze Selected Tracks")
+        # Analyze Selected button
+        self.analyze_selected_button = QPushButton("Download and Analyze Selected Tracks")
         self.analyze_selected_button.clicked.connect(self.analyze_selected_tracks)
         self.analyze_selected_button.setEnabled(False)
         self.analyze_selected_button.setMinimumHeight(40)
@@ -832,24 +752,19 @@ class MainWindow(QMainWindow):
             }
         """)
 
-        # Add all widgets to the queue_main_layout
         queue_main_layout.addLayout(queue_controls)
         queue_main_layout.addWidget(self.queue_scroll)
-        
-        # queue_main_layout.addWidget(self.analyze_selected_button)
-        
-
         left_layout.addWidget(queue_group)
         left_layout.addWidget(self.analyze_selected_button)
         left_layout.addStretch()
 
-        # CENTER PANEL - Stacked Widget for Multiple Analysis Views
+        # CENTER PANEL - stacked widget for multiple analysis views
         center_panel = QWidget()
         center_layout = QVBoxLayout(center_panel)
         center_layout.setSpacing(0)
         center_layout.setContentsMargins(0, 0, 0, 0)
         
-        # Stacked widget to hold multiple analysis views
+        # holds analysis views
         self.stacked_widget = QStackedWidget()
         center_layout.addWidget(self.stacked_widget)
         
@@ -875,17 +790,14 @@ class MainWindow(QMainWindow):
         right_layout = QVBoxLayout(right_panel)
         right_layout.setSpacing(15)
 
-
-
-          # Import CSV
-        # Import CSV
+        # Import cav
         self.import_button = QPushButton("Analyze Tracks From CSV File")
         self.import_button.clicked.connect(self.import_csv)
 
-        # Export CSV button
+        # export csv button
         self.export_button = QPushButton("Export Saved Analyses to CSV")
         self.export_button.clicked.connect(self.export_to_csv)
-        self.export_button.setEnabled(False)  # Initially disabled until there are saved analyses
+        self.export_button.setEnabled(False)
         self.export_button.setMinimumHeight(35)
         self.export_button.setStyleSheet("""
             QPushButton {
@@ -927,11 +839,6 @@ class MainWindow(QMainWindow):
         self.track_info_label.setObjectName("trackInfo")
         self.track_info_label.setMinimumHeight(60)
 
-
-
-
-
-
         control_layout = QHBoxLayout()
         self.play_button = QPushButton("▶")
         self.play_button.setObjectName("play_button")
@@ -948,7 +855,7 @@ class MainWindow(QMainWindow):
         media_layout.addLayout(control_layout)
         media_layout.addStretch()
 
-        # Saved Analyses (Previous Analyses)
+        # Saved Analyses
         saved_a_group = QGroupBox("Saved Analyses")
         saved_a_layout = QVBoxLayout(saved_a_group)
         
@@ -962,8 +869,7 @@ class MainWindow(QMainWindow):
         right_layout.addWidget(self.import_button)
         right_layout.addWidget(self.export_button)
         right_layout.addStretch()
-        
-        # Add panels to main layout
+
         main_layout.addWidget(left_panel)
         main_layout.addWidget(center_panel)
         main_layout.addWidget(right_panel)
@@ -973,11 +879,8 @@ class MainWindow(QMainWindow):
         main_layout.setStretchFactor(right_panel, 1)
 
     def toggle_select_all_queue(self):
-        """Toggle between selecting all and deselecting all tracks in the queue"""
         if not self.queue_widgets:
             return
-        
-        # all_selected = 
         
         if all(widget.is_checked() for widget in self.queue_widgets):
             for widget in self.queue_widgets:
@@ -991,31 +894,25 @@ class MainWindow(QMainWindow):
         self.update_analyze_button_state()
 
     def update_select_all_button_state(self):
-        """Update the Select All button text based on current selection state"""
         if not self.queue_widgets:
             self.select_all_button.setText("Select All")
             return
-        
-        
         if all(widget.is_checked() for widget in self.queue_widgets):
             self.select_all_button.setText("Deselect All")
         else:
             self.select_all_button.setText("Select All")
 
     def on_queue_checkbox_changed(self):
-        """Handle checkbox state changes"""
         self.update_analyze_button_state()
         self.update_select_all_button_state()
 
     def show_progress_dialog(self):
-        """Show the progress dialog if it exists"""
         if self.progress_dialog:
             self.progress_dialog.show()
             self.progress_dialog.raise_()
             self.progress_dialog.activateWindow()
 
     def analyze_selected_tracks(self):
-        """Analyze all checked tracks in the queue"""
         tracks_to_analyze = []
         
         for i, widget in enumerate(self.queue_widgets):
@@ -1025,7 +922,7 @@ class MainWindow(QMainWindow):
         if not tracks_to_analyze:
             return
         
-        # Create and show progress dialog
+        # progress bar popup window
         self.progress_dialog = AnalysisProgressDialog(len(tracks_to_analyze), self)
         self.progress_dialog.show()
         QApplication.processEvents()
@@ -1034,28 +931,26 @@ class MainWindow(QMainWindow):
         self.analyze_selected_button.setText("Analyzing...")
         QApplication.processEvents()
         
-        # Analyze each track
+        # loop through and analyze each track
         for i, track_info in enumerate(tracks_to_analyze):
-            # Update progress dialog for current track
+            # update for current track
             if self.progress_dialog:
-                self.progress_dialog.update_progress(track_info, 0, f"Starting analysis ({i+1}/{len(tracks_to_analyze)})")
+                self.progress_dialog.update_progress(track_info, 0, "Starting analysis "+str(i+1)+"/"+str(len(tracks_to_analyze)))
                 QApplication.processEvents()
             
-            # Analyze the track
+            # ANALYZE current track
             success = self.analyze_single_track_with_progress(track_info)
             
-            # Mark track as completed
+            # mark track as completed
             if self.progress_dialog:
                 self.progress_dialog.track_completed(track_info, success)
                 QApplication.processEvents()
         
         self.analyze_selected_button.setText("Analyze Selected Tracks")
         self.analyze_selected_button.setEnabled(True)
-        print("REMOVE SELECTED")
         self.remove_selected_from_queue()
 
     def analyze_single_track_with_progress(self, track_info):
-        """Analyze a single track with progress updates"""
         QApplication.processEvents()
         
         try:
@@ -1076,7 +971,7 @@ class MainWindow(QMainWindow):
                 self.progress_dialog.update_progress(track_info, 40, "Performing audio analysis...")
                 QApplication.processEvents()
             
-            # Create and cache the analysis view
+            # create and save analysis
             analysis_view = AnalysisView()
             
             # Update progress - generating visualizations
@@ -1084,13 +979,13 @@ class MainWindow(QMainWindow):
                 self.progress_dialog.update_progress(track_info, 60, "Generating visualizations...")
                 QApplication.processEvents()
             
-            # Set the track and generate analysis (this takes time but only once)
+            # set track and generate analysis
             analysis_view.set_track(track_info, track_name)
             
-            # Get analysis data for export
+            # get analysis data for export
             analysis_data = analysis_view.get_analysis_data()
             
-            # Cache the view
+            # save
             self.analysis_views[track_name] = analysis_view
             self.stacked_widget.addWidget(analysis_view)
             
@@ -1099,10 +994,10 @@ class MainWindow(QMainWindow):
                 self.progress_dialog.update_progress(track_info, 80, "Fetching metadata...")
                 QApplication.processEvents()
             
-            # Add to history with analysis data
+            # add to history with analysis data
             self.add_to_history(track_info, track_name, analysis_data)
             
-            # If this is the first analysis, display it
+            # display if its the first analysis
             if len(self.analysis_views) == 1:
                 self.stacked_widget.setCurrentWidget(analysis_view)
                 self.current_track_name = track_name
@@ -1116,60 +1011,40 @@ class MainWindow(QMainWindow):
             return True
             
         except Exception as e:
-            print(f"Error: {e}")
+            print("Error: "+str(e))
             if self.progress_dialog:
-                self.progress_dialog.update_progress(track_info, 0, f"Error: {str(e)[:50]}")
+                error_msg = str(e)
+                self.progress_dialog.update_progress(track_info, 0, "Error: " + error_msg[:50])
             return False
 
+    # add to saved analyses
     def add_to_history(self, track_info, track_name, analysis_data=None):
-        """Add analysis to history list"""
-        item_text = f"{track_info.get('track', 'Unknown')} - {track_info.get('artist', 'Unknown')}"
+        item_text = track_info.get('track', 'Unknown')+" - "+track_info.get('artist', 'Unknown')
         item = QListWidgetItem(item_text)
         item.setData(Qt.UserRole, {'track_info': track_info, 'track_name': track_name})
         self.saved_a_list.insertItem(0, item)
         
-        # Store analysis data for export
+        # store analysis data for export to csv
         if analysis_data:
             self.saved_analyses_data.append({
                 'track_info': track_info,
                 'analysis_data': analysis_data
             })
         
-        # Enable export button if there's data
+        # enable export button if there's data
         if self.saved_analyses_data:
             self.export_button.setEnabled(True)
-        
-        # Limit history to 20 items
-        while self.saved_a_list.count() > 20:
-            # Remove the oldest item
-            oldest_item = self.saved_a_list.takeItem(self.saved_a_list.count() - 1)
-            if oldest_item:
-                data = oldest_item.data(Qt.UserRole)
-                if data:
-                    old_track_name = data['track_name']
-                    # Remove from cache if it exists and isn't currently displayed
-                    if old_track_name in self.analysis_views and old_track_name != self.current_track_name:
-                        view = self.analysis_views[old_track_name]
-                        self.stacked_widget.removeWidget(view)
-                        view.deleteLater()
-                        del self.analysis_views[old_track_name]
-            
-            # Also remove oldest from saved_analyses_data
-            if len(self.saved_analyses_data) > 20:
-                self.saved_analyses_data.pop(0)
-        # END OF METHOD - NO RETURN STATEMENT
-
    
         
       
-
+    # change analysis view when you click on a previous analysis
     def load_previous_analysis(self, item):
-        """Load a previous analysis from history - instant switch!"""
         data = item.data(Qt.UserRole)
         if data:
             track_info = data['track_info']
             track_name = data['track_name']
-            # pause the playback when changing to a different song
+
+            # pause audio playback when changing to a different song
             current_view = self.get_current_analysis_view()
             if current_view and hasattr(current_view, 'player') and current_view.player:
                 if current_view.player.playbackState() == QMediaPlayer.PlayingState:
@@ -1177,24 +1052,19 @@ class MainWindow(QMainWindow):
                     # Update play button state
                     self.play_button.setText("▶")
             
-            # Check if we have this analysis cached
-            if track_name in self.analysis_views:
-                # Just switch to the cached view - instant!
-                self.stacked_widget.setCurrentWidget(self.analysis_views[track_name])
-                self.current_track_name = track_name
-                
-                self.update_track_info_display(track_info)
-                self.play_button.setEnabled(True)
-            else:
-                # This shouldn't happen, but just in case
-                print(f"Warning: Analysis for {track_name} not found in cache")
+
+            self.stacked_widget.setCurrentWidget(self.analysis_views[track_name])
+            self.current_track_name = track_name
+            
+            self.update_track_info_display(track_info)
+            self.play_button.setEnabled(True)
 
     def get_current_analysis_view(self):
-        """Get the currently displayed analysis view"""
         if self.current_track_name and self.current_track_name in self.analysis_views:
             return self.analysis_views[self.current_track_name]
         return None
 
+    # search Deezer API
     def search_song(self):
         self.artist_name = self.a_input.text()
         self.track_name = self.t_input.text()
@@ -1210,28 +1080,31 @@ class MainWindow(QMainWindow):
             self.search_results_full = af.deezer_search(self.artist_name, self.track_name) 
             self.display_results(self.search_results_full)
         except Exception as e:
-            print(f"Search error: {str(e)}")
+            print("Search error: "+str(e))
         finally:
             self.search_button.setText("Search For Track")
             self.search_button.setEnabled(True)
 
+    # display search results
     def display_results(self, results):
         self.result_list.clear()
 
         if self.covers_check.isChecked():
             for i, track in enumerate(results):
-                item_text = f"{track['track']} - {track['artist']}"
+                item_text = track['track']+ " - " +track['artist']
                 item = QListWidgetItem(item_text)
                 item.setData(Qt.UserRole, i)
                 self.result_list.addItem(item)
         else:
+            # if covers isnt checked, display the first result
             i = 0
             track = results[0]
-            item_text = f"{track['track']} - {track['artist']}"
+            item_text = track['track']+" - "+track['artist']
             item = QListWidgetItem(item_text)
             item.setData(Qt.UserRole, i)
             self.result_list.addItem(item)
 
+    # update track selected field
     def on_track_selected(self, item):
         index = item.data(Qt.UserRole)
         self.selected_track = self.search_results_full[index]
@@ -1245,12 +1118,12 @@ class MainWindow(QMainWindow):
         
         self.add_to_queue_button.setEnabled(True)
 
+    # add track to analysis queue
     def add_to_queue(self):
-        """Add selected track to the analysis queue"""
         if not self.selected_track:
             return
         
-        # Check if track is already in queue
+        # check if track is already in queue
         for track in self.analysis_queue:
             if (track.get('track') == self.selected_track.get('track') and 
                 track.get('artist') == self.selected_track.get('artist')):
@@ -1258,7 +1131,7 @@ class MainWindow(QMainWindow):
         
         self.analysis_queue.append(self.selected_track.copy())
         
-        # Add widget to queue display
+        # add widget to queue display
         queue_widget = QueueTrackWidget(self.selected_track)
         self.queue_layout.insertWidget(self.queue_layout.count() - 1, queue_widget)
         self.queue_widgets.append(queue_widget)
@@ -1269,7 +1142,6 @@ class MainWindow(QMainWindow):
         queue_widget.checkbox.stateChanged.connect(self.on_queue_checkbox_changed)
 
     def remove_selected_from_queue(self):
-        """Remove checked tracks from the queue"""
         widgets_to_remove = []
         tracks_to_remove = []
         
@@ -1290,16 +1162,15 @@ class MainWindow(QMainWindow):
         self.update_select_all_button_state()
 
     def update_analyze_button_state(self):
-        """Enable/disable analyze button based on checked items"""
         has_checked = any(widget.is_checked() for widget in self.queue_widgets)
         self.analyze_selected_button.setEnabled(has_checked)
 
+    # export all saved analyses to csv
     def export_to_csv(self):
-        """Export saved analyses to CSV file"""
         if not self.saved_analyses_data:
             return
         
-        # Open file dialog to choose save location
+        # open popup to choose save location
         dialog = QFileDialog(self)
         filepath, _ = QFileDialog.getSaveFileName(
             self, 
@@ -1310,15 +1181,17 @@ class MainWindow(QMainWindow):
         
         if filepath:
             try:
-                # Call the export function from search module
+                # call export function from search module
                 filename = af.export_saved_analyses_to_csv(self.saved_analyses_data, filepath)
                 
-                # Show success message (optional)
                 msg = QDialog(self)
                 msg.setWindowTitle("Export Successful")
                 msg.setMinimumWidth(300)
                 layout = QVBoxLayout(msg)
-                label = QLabel(f"Successfully exported {len(self.saved_analyses_data)} tracks to:\n{filename}")
+                if len(self.saved_analyses_data) > 1:
+                    label = QLabel("Successfully exported "+str(len(self.saved_analyses_data))+" tracks to:\n"+filename)
+                else:
+                    label = QLabel("Successfully exported "+str(len(self.saved_analyses_data))+" track to:\n"+filename)
                 label.setWordWrap(True)
                 label.setAlignment(Qt.AlignCenter)
                 layout.addWidget(label)
@@ -1328,12 +1201,11 @@ class MainWindow(QMainWindow):
                 msg.exec()
                 
             except Exception as e:
-                # Show error message
                 msg = QDialog(self)
                 msg.setWindowTitle("Export Failed")
                 msg.setMinimumWidth(300)
                 layout = QVBoxLayout(msg)
-                label = QLabel(f"Failed to export data:\n{str(e)}")
+                label = QLabel("Failed to export data:\n"+str(e))
                 label.setWordWrap(True)
                 label.setAlignment(Qt.AlignCenter)
                 layout.addWidget(label)
@@ -1369,38 +1241,27 @@ class MainWindow(QMainWindow):
             print("--- %s seconds ---" % (time.time() - start_time))
 
     def update_track_info_display(self, track_info):
-        """Update the track info display in the right panel"""
-        # Update media player label
-        self.track_info_label.setText(f"{track_info.get('track', 'Unknown')}\n{track_info.get('artist', 'Unknown')}")
+        # update media player label
+        self.track_info_label.setText(track_info.get('track', 'Unknown')+"\n"+track_info.get('artist', 'Unknown'))
         
-        # Update Currently Selected box
+        # update currently selected box
         self.detail_track.setText("Track: " + track_info.get('track', '--'))
         self.detail_artist.setText("Artist: " + track_info.get('artist', '--'))
         self.detail_album.setText("Album: " + track_info.get('album', '--'))
         
-        # Format release date if it exists
+        # format release date if it exists
         release_date = track_info.get('release_date', '--')
         if release_date and release_date != '--':
             self.detail_year.setText("Release Date: " + str(release_date))
         else:
             self.detail_year.setText("Release Date: --")
 
-    # Media player methods
+    # media player methods
     def toggle_playback(self):
         current_view = self.get_current_analysis_view()
         if current_view and hasattr(current_view, 'toggle_playback'):
             current_view.toggle_playback()
             self.update_play_button_state()
-
-    # def seek_position(self, position):
-    #     current_view = self.get_current_analysis_view()
-    #     if current_view and hasattr(current_view, 'seek_position'):
-    #         current_view.seek_position(position)
-
-    def update_progress(self):
-        current_view = self.get_current_analysis_view()
-        if current_view and hasattr(current_view, 'update_progress'):
-            current_view.update_progress()
 
     def update_play_button_state(self):
         current_view = self.get_current_analysis_view()
@@ -1410,15 +1271,11 @@ class MainWindow(QMainWindow):
             else:
                 self.play_button.setText("▶")
 
-    def on_media_status_changed(self, status):
-        if status == QMediaPlayer.EndOfMedia:
-            self.play_button.setText("▶")
-
 
 app = QApplication(sys.argv)
 window = MainWindow()
 
-# Load and apply stylesheet
+# apply style.qss
 try:
     with open("style.qss", "r") as f:
         STYLE_QSS = f.read()
