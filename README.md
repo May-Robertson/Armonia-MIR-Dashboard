@@ -1,5 +1,6 @@
-Please run the following commands to install required packages and dependencies
 
+Please run the following commands to install required packages and dependencies
+```
 pip install IPython
 pip install numba llvmlite --only-binary :all:
 pip install librosa
@@ -15,3 +16,4 @@ pip install pydub
 pip install lyricsgenius
 
 brew install ffmpeg
+```
