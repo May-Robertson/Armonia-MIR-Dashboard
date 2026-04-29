@@ -19,3 +19,8 @@ pip install pydub
 pip install lyricsgenius
 brew install ffmpeg
 ```
+
+ADD your genius API key to .env as
+```
+GENIUS_API_KEY=
+```
